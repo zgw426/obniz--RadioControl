@@ -1,0 +1,110 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://obniz.io/js/jquery-3.2.1.min.js"></script>
+  <script src="https://unpkg.com/obniz@2.4.0/obniz.js" crossorigin="anonymous"></script>
+</head>
+<body ontouchmove="event.preventDefault()">
+    <canvas id="testArea" style="width:600px; height:300px; background-color:orange"></canvas>
+<script>
+    var obniz = new Obniz("obniz-ID");
+    obniz.onconnect = async function () {
+        var motor1 = obniz.wired("DCMotor", {forward:0, back:1}); // 左車輪のモーター
+        var motor2 = obniz.wired("DCMotor", {forward:10, back:11}); // 右車輪のモーター
+        obniz.display.clear();
+        obniz.display.print("Hello World");
+
+        var el_hitarea = document.getElementById('testArea');
+        var el_x = document.getElementById('x');
+        var el_y = document.getElementById('y');
+        var element = document.getElementById("testArea"); 
+        var div_width = element.clientWidth;
+        var div_height= element.clientHeight;
+        var div_x = element.offsetLeft + div_width/3;
+        var div_y = element.offsetTop  + div_height/4;
+
+        var updateXY = function(event) {
+            now_x = Math.floor( (event.changedTouches[0].pageX - div_x)*2/3 );
+            now_y = Math.floor( (event.changedTouches[0].pageY - div_y)*2/3 * (-1));
+
+            let x1 = div_x ;
+            let y1 = div_y ;
+            let x2 = event.changedTouches[0].pageX - div_x ;
+            let y2 = event.changedTouches[0].pageY - div_y ;
+            let mpow  = Math.round( Math.sqrt( Math.pow( x2-x1, 2 ) + Math.pow( y2-y1, 2 ) ) ) ; // 2点間の距離
+            if( mpow >=100 ) mpow = 100;
+            let angle = ( Math.atan2( y2 - y1, x2 - x1 ) * 180 / 3.1415 ).toFixed(2);
+            let rightMotor = ( mpow * Math.cos( angle ) ).toFixed(0);
+            let leftMotor  = ( mpow * Math.sin( angle ) ).toFixed(0);
+
+            const range1 = 40;
+            const range2 = 130;
+            const rate = 0.8
+            if( angle >= range1 && angle <= range2 ){
+                //--- 前進 ---//
+                motor1.power( Math.abs(mpow) );
+                motor2.power( Math.abs(mpow) );
+                motor1.reverse(); motor2.forward();
+                console.log( "degub forward: " + Math.abs(rightMotor) );
+            }else if( angle <= (-1)*range1 && angle >= (-1)*range2 ){
+                //--- 後進 ---//
+                motor1.power( Math.abs(mpow) );
+                motor2.power( Math.abs(mpow) );
+                motor1.forward(); motor2.reverse();
+                console.log( "degub reverse: " + Math.abs(rightMotor) );
+            }else if( Math.abs(angle) < range1 ){
+                //--- 右旋回 ---//
+                motor1.power( Math.abs(mpow * rate) );
+                motor2.power( Math.abs(mpow * rate) );
+                motor1.forward(); motor2.forward();
+            }else{
+                //--- 左旋回 ---//
+                motor1.power( Math.abs(mpow * rate) );
+                motor2.power( Math.abs(mpow * rate) );
+                motor1.reverse(); motor2.reverse();
+            }
+        }; // var updateXY = function(event)
+
+        el_hitarea.addEventListener('touchmove', function(event) {
+            updateXY(event);
+        }, false);
+
+        el_hitarea.addEventListener('touchend', function(event) {
+            console.log("[debyg] now_x=0 now_y=0");
+            motor1.stop();
+            motor2.stop();
+        }, false);
+    };
+
+    window.onload = function()
+    {
+        // canvasタグに輪と半透明の円を描画する
+        var element = document.getElementById("testArea"); 
+        var div_width = element.clientWidth;
+        var div_height= element.clientHeight;
+        var div_x = element.offsetLeft + div_width/3;
+        var div_y = element.offsetTop  + div_height/4;
+        var cv= document.getElementById('testArea');
+        var canvas = document.getElementById('testArea');
+        var ctx = canvas.getContext('2d'); // CanvasRenderingContext2D取得
+        ctx.save();
+        ctx.translate(div_x, div_y); // 座標移動
+        ctx.beginPath(); // 経路開始
+        ctx.arc(0, 0 , 60, 0, Math.PI * 2, true); // 弧描く
+        ctx.closePath();
+        ctx.lineWidth = 6;
+        lg2 = ctx.createLinearGradient(-40, -40, 80, 50); // ライングラデーション
+        lg2.addColorStop(0.1, "#ff0"); // 色追加
+        lg2.addColorStop(0.4, "#0ff");
+        lg2.addColorStop(0.8, "#f0f");
+        ctx.strokeStyle = lg2; // 描画
+        ctx.stroke();
+        ctx.restore();
+        ctx.translate(div_x, div_y); // 座標移動
+        ctx.fillStyle = "rgba(" + [0, 0, 255, 0.2] + ")";
+        ctx.fill();
+    }
+</script>
+</body>
+</html>
