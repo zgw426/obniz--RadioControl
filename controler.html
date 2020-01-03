@@ -35,8 +35,6 @@
             let mpow  = Math.round( Math.sqrt( Math.pow( x2-x1, 2 ) + Math.pow( y2-y1, 2 ) ) ) ; // 2点間の距離
             if( mpow >=100 ) mpow = 100;
             let angle = ( Math.atan2( y2 - y1, x2 - x1 ) * 180 / 3.1415 ).toFixed(2);
-            let rightMotor = ( mpow * Math.cos( angle ) ).toFixed(0);
-            let leftMotor  = ( mpow * Math.sin( angle ) ).toFixed(0);
 
             const range1 = 40;
             const range2 = 130;
@@ -46,13 +44,11 @@
                 motor1.power( Math.abs(mpow) );
                 motor2.power( Math.abs(mpow) );
                 motor1.reverse(); motor2.forward();
-                console.log( "degub forward: " + Math.abs(rightMotor) );
             }else if( angle <= (-1)*range1 && angle >= (-1)*range2 ){
                 //--- 後進 ---//
                 motor1.power( Math.abs(mpow) );
                 motor2.power( Math.abs(mpow) );
                 motor1.forward(); motor2.reverse();
-                console.log( "degub reverse: " + Math.abs(rightMotor) );
             }else if( Math.abs(angle) < range1 ){
                 //--- 右旋回 ---//
                 motor1.power( Math.abs(mpow * rate) );
