@@ -1,0 +1,214 @@
+<html>
+    <head>
+        <script src="https://obniz.io/js/jquery-3.2.1.min.js"></script>
+        <script src="https://unpkg.com/obniz@2.4.0/obniz.js" crossorigin="anonymous"></script>
+        <script type="text/javascript">
+            /* Copyright (C) 2007 Richard Atterer, richardĀ©atterer.net
+            This program is free software; you can redistribute it and/or modify it
+            under the terms of the GNU General Public License, version 2. See the file
+            COPYING for details. */
+            
+            var imageNr = 0; // Serial number of current image
+            var finished = new Array(); // References to img objects which have finished downloading
+            var paused = false;
+            
+            function createImageLayer() {
+                var img = new Image();
+                img.style.position = "absolute";
+                img.style.zIndex = -1;
+                img.onload = imageOnload;
+                img.onclick = imageOnclick;
+                img.src = "http://{{ラズパイのIP}}:8090/?action=snapshot&n=" + (++imageNr);
+                var webcam = document.getElementById("webcam");
+                webcam.insertBefore(img, webcam.firstChild);
+            }
+
+            // Two layers are always present (except at the very beginning), to avoid flicker
+            function imageOnload() {
+                this.style.zIndex = imageNr; // Image finished, bring to front!
+                while (1 < finished.length) {
+                var del = finished.shift(); // Delete old image(s) from document
+                del.parentNode.removeChild(del);
+            }
+            finished.push(this);
+                if (!paused) createImageLayer();
+            }
+            
+            function imageOnclick() { // Clicking on the image will pause the stream
+                paused = !paused;
+                if (!paused) createImageLayer();
+            }
+        </script>
+        <style>
+            #container {
+                position: relative;
+            }
+            #webcam {
+                width: 640px;
+                height: 480px;
+                position: absolute;
+                z-index: 1;
+            }
+            #hoge {
+                position: absolute;
+                z-index: 2;
+            }
+        </style>
+    </head>
+    <body ontouchmove="event.preventDefault()" onload="createImageLayer();">
+
+        <div id="container">
+            <canvas id="hoge" width="600" height="600"></canvas>
+            <div id="webcam"><img id="testImage" src="http://{{ラズパイのIP}}:8090/?action=snapshot" width="200" height="200"></div>
+        </div>
+        
+        <script>
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+            let el_hitarea = document.getElementById('hoge');
+            let x0 = 0;
+            let y0 = 0;
+
+        var obniz = new Obniz("obniz-ID"); //obniz-ID
+        obniz.onconnect = async function () {
+            var motor1 = obniz.wired("DCMotor", {forward:0, back:1}); // 左車輪のモーター
+            var motor2 = obniz.wired("DCMotor", {forward:10, back:11}); // 右車輪のモーター
+            obniz.display.clear();
+            obniz.display.print("Hello World");
+
+            var el_hitarea = document.getElementById('hoge');
+            var element = document.getElementById("hoge"); 
+            var div_width = element.clientWidth;
+            var div_height= element.clientHeight;
+            var div_x = element.offsetLeft + div_width/3;
+            var div_y = element.offsetTop  + div_height/4;
+
+            var updateXY = function(event) {
+                let x1 = event.changedTouches[0].pageX;
+                let y1 = event.changedTouches[0].pageY;
+                let rtnArr = new Array();
+                rtnArr.length = 0;
+                rtnArr = showController("hoge", x1, y1);
+
+                let mpow  = rtnArr[0];
+                let angle = rtnArr[1];
+
+                const range1 = 40;
+                const range2 = 130;
+                const rate = 0.5;
+                if( angle >= range1 && angle <= range2 ){
+                    //--- 後進 ---//
+                    motor1.power( Math.abs(mpow) );
+                    motor2.power( Math.abs(mpow) );
+                    motor1.forward(); motor2.reverse();
+                }else if( angle <= (-1)*range1 && angle >= (-1)*range2 ){
+                    //--- 前進 ---//
+                    motor1.power( Math.abs(mpow) );
+                    motor2.power( Math.abs(mpow) );
+                    motor1.reverse(); motor2.forward();
+                }else if( Math.abs(angle) < range1 ){
+                    //--- 左旋回 ---//
+                    motor1.power( Math.abs(mpow * rate) );
+                    motor2.power( Math.abs(mpow * rate) );
+                    motor1.reverse(); motor2.reverse();
+                }else{
+                    //--- 右旋回 ---//
+                    motor1.power( Math.abs(mpow * rate) );
+                    motor2.power( Math.abs(mpow * rate) );
+                    motor1.forward(); motor2.forward();
+                }
+            }; // var updateXY = function(event)
+
+            el_hitarea.addEventListener('touchmove', function(event) {
+                updateXY(event);
+            }, false);
+
+            el_hitarea.addEventListener('touchstart', function(event) {
+                x0 = event.changedTouches[0].pageX;
+                y0 = event.changedTouches[0].pageY;
+            }, false);
+
+            el_hitarea.addEventListener('touchend', function(event) {
+                setCanvasClear("hoge");
+                motor1.stop();
+                motor2.stop();
+            }, false);
+        };
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+            function showController(argElement, argX, argY){
+                setCanvasClear(argElement);
+                setLine(argElement, argX, argY);
+                setArc(argElement, x0, y0, 10, "rgba(100,100,100,1.0)");
+                setArc(argElement, argX, argY, 20, "rgba(255,0,0,1.0)");
+
+                let rtnArr = new Array();
+                rtnArr.length = 0;
+                let mpow  = Math.round( 0.5 * Math.sqrt( Math.pow( x0-argX, 2 ) + Math.pow( y0-argY, 2 ) ) ) ; // 2点間の距離
+                if( mpow >=100 ) mpow = 100;
+                let angle = ( Math.atan2( y0 - argY, x0 - argX ) * 180 / 3.1415 ).toFixed(0);
+                let x3 = x0;
+                let y3 = y0 - 10;
+                setChar(argElement, x3, y3, "POW: " + mpow);
+                y3 = y0 - 40;
+                setChar(argElement, x3, y3, "Angle: " + angle);
+                rtnArr.push(mpow);
+                rtnArr.push(angle);
+                return rtnArr ;
+            }
+
+            function setChar(argElement, argX, argY, argString){
+                var element = document.getElementById(argElement) ;
+                var context = element.getContext( "2d" ) ;
+                context.font = '20pt Arial';
+                context.fillText(argString, argX, argY);
+            }
+
+            function setLine(argElement, argX, argY){
+                var element = document.getElementById(argElement) ;
+                var context = element.getContext( "2d" ) ;
+                context.moveTo(x0,y0);
+                context.lineTo(argX,argY);
+                context.stroke();
+            }
+
+            function setCanvasClear(argElement){
+                var element = document.getElementById(argElement) ;
+                var context = element.getContext( "2d" ) ;
+                context.clearRect(0, 0, element.width, element.height); // canvas 初期化
+            }
+
+            function setArc( argElement, argX, argY, argRadius, argColor)
+            {
+                var element = document.getElementById(argElement) ;
+                var context = element.getContext( "2d" ) ;
+                // パスをリセット
+                context.beginPath () ;
+
+                // 円の中心座標: (100,100)
+                // 半径: 50
+                // 開始角度: 0度 (0 * Math.PI / 180)
+                // 終了角度: 360度 (360 * Math.PI / 180)
+                // 方向: true=反時計回りの円、false=時計回りの円
+                context.arc( argX, argY, argRadius, 0 * Math.PI / 180, 360 * Math.PI / 180, false ) ;
+
+                // 塗りつぶしの色
+                context.fillStyle = argColor;
+
+                // 塗りつぶしを実行
+                context.fill() ;
+
+                // 線の色
+                context.strokeStyle = "purple" ;
+
+                // 線の太さ
+                context.lineWidth = 4 ;
+
+                // 線を描画を実行
+                context.stroke() ;
+            }
+        //////////////////////////////////////////////////////////////////////////
+        </script>
+    </body ontouchmove="event.preventDefault()">
+</html>
